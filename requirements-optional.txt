@@ -1,0 +1,4 @@
+# Optional desktop video reference and track plotting tools.
+opencv-python>=4.8
+numpy>=1.24
+matplotlib>=3.7

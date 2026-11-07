@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+vendor/himax-grove-sdk/
+logs/
+/build/
+*.elf
+*.img
+tests/native_smoke
+tests/native_smoke.exe
+tests/native_sweep
+tests/native_sweep.exe
+tests/sample_stream.bin
+tests/sample_record.jsonl

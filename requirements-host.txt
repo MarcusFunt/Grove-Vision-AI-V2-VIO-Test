@@ -1,0 +1,2 @@
+# USB serial support for host/gui.py and host/record.py.
+pyserial>=3.5
