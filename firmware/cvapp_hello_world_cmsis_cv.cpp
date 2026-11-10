@@ -72,8 +72,10 @@ extern "C" void cv_hello_world_cmsis_cv_init() {
     serial_port->uart_open(UART_BAUDRATE_921600);
 }
 extern "C" int cv_hello_world_cmsis_cv_run() {
-    poll_preview_command();
+    /* Timestamp callback entry before serial-command polling, which can add
+     * variable delay. Still frame-ready, NOT sensor exposure time. */
     uint64_t ready=get_ticks();
+    poll_preview_command();
     const uint8_t *image=(const uint8_t *)app_get_raw_addr();
     vt_process(&tracker,image);
     uint64_t done=get_ticks();
