@@ -12,10 +12,10 @@
 | SDA | D10 | 9 | MOSI |
 | SA0 | D9 | 8 | MISO |
 | CS | D3 | 4 | Chip select |
-| INT1 | D2 | 3 | Gyro DRDY hardware capture |
+| INT1 | D0 | 1 | Gyro DRDY hardware capture |
 | INT2 | D1 | 2 | Accel DRDY hardware capture |
 
-Do not connect VIN, OCS, SCX or SDX for this test. Verify the breakout's SA0 strapping and 3V3 power topology first. XIAO ESP32-S3 Sense microSD may conflict with D2/D8/D9/D10 pins.
+Do not connect VIN, OCS, SCX or SDX for this test. Verify the breakout's SA0 strapping and 3V3 power topology first. XIAO ESP32-S3 Sense microSD may conflict with D8/D9/D10 pins. D2/GPIO3 was intentionally avoided because it is a JTAG-selection strapping pin; use D0/GPIO1 for INT1.
 
 ## Firmware build and run
 
