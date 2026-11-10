@@ -1,0 +1,40 @@
+name: IMU capture protocol tests
+
+on:
+  push:
+    branches:
+      - feat/imu-spi-hw-timestamps
+  pull_request:
+    paths:
+      - "host/imu_capture.py"
+      - "tests/test_imu_capture.py"
+      - ".github/workflows/imu-protocol.yml"
+      - "companion/xiao_esp32s3_lsm6ds3_capture/**"
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile host parser
+        run: python -m py_compile host/imu_capture.py tests/test_imu_capture.py
+      - name: Run native tests
+        run: python -m unittest discover -s tests -p test_imu_capture.py -v
+
+  firmware-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install ESP32 Arduino 3.x core
+        run: |
+          arduino-cli config init --overwrite
+          arduino-cli config set board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+      - name: Compile XIAO ESP32-S3 companion sketch
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3 companion/xiao_esp32s3_lsm6ds3_capture
