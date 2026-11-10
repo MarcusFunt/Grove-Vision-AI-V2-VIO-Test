@@ -41,6 +41,8 @@ mcpwm_cap_timer_handle_t cap_timer = nullptr;
 mcpwm_cap_channel_handle_t cap_gyro = nullptr, cap_acc = nullptr;
 uint8_t channel_ids[2] = {0, 1};
 volatile uint32_t missed_edge_queue = 0;
+volatile uint32_t skipped_stale_samples = 0;
+volatile uint32_t latest_edge_tick[2] = {0, 0};
 uint32_t sequence = 0;
 
 uint8_t spiRead(uint8_t addr) {
@@ -77,9 +79,10 @@ void readAxes(uint8_t start, int16_t axes[3]) {
 bool IRAM_ATTR onCapture(mcpwm_cap_channel_handle_t,
                          const mcpwm_capture_event_data_t *e, void *context) {
   Edge ev = {e->cap_value, *static_cast<uint8_t *>(context)};
+  latest_edge_tick[ev.kind] = ev.ticks;
   BaseType_t woken = pdFALSE;
   if (xQueueSendFromISR(edge_queue, &ev, &woken) != pdTRUE) {
-    ++missed_edge_queue;
+    __atomic_fetch_add(&missed_edge_queue, 1u, __ATOMIC_RELAXED);
   }
   return woken == pdTRUE;
 }
@@ -126,7 +129,8 @@ void sendSample(const Edge &e, const int16_t xyz[3]) {
   add32(p, 5, sequence++);
   add32(p, 9, e.ticks);
   for (size_t i=0;i<3;i++) add16(p, 13+i*2, static_cast<uint16_t>(xyz[i]));
-  add32(p, 19, missed_edge_queue);
+  add32(p, 19, __atomic_load_n(&missed_edge_queue, __ATOMIC_RELAXED) +
+               __atomic_load_n(&skipped_stale_samples, __ATOMIC_RELAXED));
   add16(p, 23, crc16(p, 23));
   uint8_t packet[PAYLOAD_SIZE + 4];
   const size_t bytes = cobsEncode(p, sizeof(p), packet);
@@ -206,8 +210,19 @@ void setup() {
 void loop() {
   Edge e;
   if (xQueueReceive(edge_queue, &e, pdMS_TO_TICKS(1000)) == pdTRUE) {
+    // The output registers only hold the latest sample, NOT a historical
+    // sample for each queued edge. Never pair an old edge timestamp with
+    // registers that have already been refreshed by a newer DRDY event.
+    if (__atomic_load_n(&latest_edge_tick[e.kind], __ATOMIC_RELAXED) != e.ticks) {
+      __atomic_fetch_add(&skipped_stale_samples, 1u, __ATOMIC_RELAXED);
+      return;
+    }
     int16_t xyz[3];
     readAxes(e.kind==0 ? OUTX_L_G : OUTX_L_XL, xyz);
+    if (__atomic_load_n(&latest_edge_tick[e.kind], __ATOMIC_RELAXED) != e.ticks) {
+      __atomic_fetch_add(&skipped_stale_samples, 1u, __ATOMIC_RELAXED);
+      return;
+    }
     sendSample(e, xyz);
   }
 }
